@@ -19,6 +19,7 @@ export const churches = pgTable('churches', {
   longitude: decimal('longitude', { precision: 11, scale: 8 }).notNull(),
   instagram: varchar('instagram', { length: 100 }),
   createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+  
 });
 
 // 3. Tabela de Horários
