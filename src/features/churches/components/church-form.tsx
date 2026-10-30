@@ -234,7 +234,7 @@ export function ChurchForm({ onSuccess, initialValues, mode }: ChurchFormProps) 
     <Card className="w-full max-w-3xl mx-auto shadow-sm border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 rounded-xl overflow-hidden">
       <Card.Header className="p-6 border-b border-zinc-200 dark:border-zinc-800 bg-zinc-50/50 dark:bg-zinc-900/50">
         <Card.Title className="text-xl sm:text-2xl font-bold tracking-tight text-zinc-900 dark:text-zinc-50">
-          {isEditMode ? 'Editar Paróquia' : 'Dados da Paróquia'}
+          {isEditMode ? `Editar Paróquia - ${initialValues?.name}` : 'Dados da Paróquia'}
         </Card.Title>
         <Card.Description className="text-sm text-zinc-600 dark:text-zinc-400 mt-1">
           {isEditMode

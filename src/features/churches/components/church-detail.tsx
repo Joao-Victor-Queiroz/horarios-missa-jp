@@ -3,6 +3,7 @@ import Link from 'next/link';
 import type { Church } from '../types';
 import type { Schedule } from '@/src/features/schedules/types';
 import { ChurchSchedulesDisplay } from '@/src/features/schedules/components/church-schedules-display';
+import { getInstagramURL } from '../utils/instagramUrl';
 
 interface ChurchDetailProps {
   church: Church;
@@ -19,7 +20,7 @@ export function ChurchDetail({ church, schedules = [] }: ChurchDetailProps) {
 
   const mapsUrl = `https://www.google.com/maps/search/?api=1&query=${church.latitude},${church.longitude}`;
   const instagramUrl = church.instagram
-    ? `https://instagram.com/${church.instagram.replace(/^@/, '')}`
+    ? getInstagramURL(church.instagram)
     : null;
 
   return (
@@ -50,13 +51,12 @@ export function ChurchDetail({ church, schedules = [] }: ChurchDetailProps) {
                 <span>Gerenciar Horários</span>
               </Link>
               <a
-                href={mapsUrl}
-                target="_blank"
+                href={`/admin/${church.id}/edit`}
+                // target="_blank"
                 rel="noopener noreferrer"
                 className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs sm:text-sm font-medium bg-zinc-100 hover:bg-zinc-200 dark:bg-zinc-800 dark:hover:bg-zinc-700 text-zinc-800 dark:text-zinc-200 transition-colors"
               >
-                <span>🗺️</span>
-                <span>Abrir no Google Maps</span>
+                <span>Editar</span>
               </a>
             </div>
           </div>

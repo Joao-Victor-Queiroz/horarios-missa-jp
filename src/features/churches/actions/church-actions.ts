@@ -150,7 +150,6 @@ export async function getChurchByIdAction(
       .select()
       .from(churches)
       .where(eq(churches.id, id))
-      .limit(1);
 
     if (result.length === 0) {
       return {

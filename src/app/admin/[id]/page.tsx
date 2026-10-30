@@ -80,7 +80,6 @@ async function ChurchDetailContent({ params }: ChurchDetailPageProps) {
 
   return (
     <div className="space-y-6">
-      {/* Cabeçalho de Navegação / Breadcrumb */}
       <div className="space-y-2">
         <div className="text-xs text-zinc-500 dark:text-zinc-400 uppercase tracking-wider flex items-center gap-1.5 font-medium flex-wrap">
           <Link href="/" className="hover:text-zinc-900 dark:hover:text-zinc-200 transition-colors">
@@ -107,7 +106,6 @@ async function ChurchDetailContent({ params }: ChurchDetailPageProps) {
         </div>
       </div>
 
-      {/* Detalhes da Paróquia */}
       <ChurchDetail church={church} schedules={schedules} />
     </div>
   );
