@@ -36,7 +36,7 @@ export default function RegisterChurchPage() {
         </div>
 
         {/* Formulário Principal da Feature */}
-        <ChurchForm />
+        <ChurchForm mode="REGISTER"/>
       </div>
     </div>
   );

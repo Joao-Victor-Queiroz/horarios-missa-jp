@@ -18,21 +18,25 @@ import {
   toast,
 } from '@heroui/react';
 import { churchSchema, type ChurchFormData } from '../schemas/church-schema';
-import { createChurchAction } from '../actions/church-actions';
+import { createChurchAction, editChurchAction } from '../actions/church-actions';
 import { slugify } from '../utils/slugify';
 import type { Church } from '../types';
 
+type FormMode = 'REGISTER' | 'EDIT';
+
 interface ChurchFormProps {
   onSuccess?: (church: Church) => void;
+  initialValues?: Church;
+  mode: FormMode;
 }
 
-export function ChurchForm({ onSuccess }: ChurchFormProps) {
-  const [isSubmitting, setIsSubmitting] = useState(false);
-  const [serverError, setServerError] = useState<string | null>(null);
+export function ChurchForm({ onSuccess, initialValues, mode }: ChurchFormProps) {
   const [successChurch, setSuccessChurch] = useState<Church | null>(null);
-  const [isCustomSlug, setIsCustomSlug] = useState(false);
+  const [isCustomSlug, setIsCustomSlug] = useState(mode === 'EDIT');
   const [geoLoading, setGeoLoading] = useState(false);
   const [geoNotice, setGeoNotice] = useState<string | null>(null);
+
+  const isEditMode = mode === 'EDIT';
 
   const {
     register,
@@ -40,22 +44,32 @@ export function ChurchForm({ onSuccess }: ChurchFormProps) {
     setValue,
     reset,
     setError,
-    formState: { errors },
+    clearErrors,
+    formState: { errors, isSubmitting },
   } = useForm<ChurchFormData>({
     resolver: zodResolver(churchSchema),
-    defaultValues: {
-      name: '',
-      slug: '',
-      neighborhood: '',
-      address: '',
-      latitude: '',
-      longitude: '',
-      instagram: '',
-    },
+    defaultValues: initialValues
+      ? {
+          name: initialValues.name,
+          slug: initialValues.slug,
+          neighborhood: initialValues.neighborhood,
+          address: initialValues.address,
+          latitude: String(initialValues.latitude),
+          longitude: String(initialValues.longitude),
+          instagram: initialValues.instagram ?? '',
+        }
+      : {
+          name: '',
+          slug: '',
+          neighborhood: '',
+          address: '',
+          latitude: '',
+          longitude: '',
+          instagram: '',
+        },
     mode: 'onTouched',
   });
 
-  // Atualiza o slug automaticamente enquanto o usuário digita o nome
   const handleNameChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const newName = e.target.value;
     setValue('name', newName, { shouldValidate: true });
@@ -66,7 +80,6 @@ export function ChurchForm({ onSuccess }: ChurchFormProps) {
     }
   };
 
-  // Captura localização geográfica do navegador
   const handleGetLocation = () => {
     if (!navigator.geolocation) {
       const msg = 'Geolocalização não é suportada pelo seu navegador.';
@@ -108,12 +121,15 @@ export function ChurchForm({ onSuccess }: ChurchFormProps) {
   };
 
   const onSubmit = async (data: ChurchFormData) => {
-    setIsSubmitting(true);
-    setServerError(null);
+    clearErrors('root');
     setGeoNotice(null);
 
     try {
-      const response = await createChurchAction(data);
+      // Dispara a action correspondente ao modo
+      const response =
+        isEditMode && initialValues?.id
+          ? await editChurchAction(initialValues.id, data)
+          : await createChurchAction(data);
 
       if (!response.success) {
         if (response.errors) {
@@ -124,10 +140,15 @@ export function ChurchForm({ onSuccess }: ChurchFormProps) {
             });
           });
         }
-        setServerError(response.message);
 
-        // Feedback via Toast de Erro
-        toast.danger('Falha ao cadastrar', {
+        setError('root', {
+          type: 'server',
+          message:
+            response.message ||
+            (isEditMode ? 'Erro ao atualizar paróquia.' : 'Erro ao cadastrar paróquia.'),
+        });
+
+        toast.danger(isEditMode ? 'Falha ao atualizar' : 'Falha ao cadastrar', {
           description: response.message || 'Verifique os dados informados no formulário.',
           timeout: 5000,
         });
@@ -138,93 +159,54 @@ export function ChurchForm({ onSuccess }: ChurchFormProps) {
         setSuccessChurch(response.data);
         onSuccess?.(response.data);
 
-        // Feedback via Toast de Sucesso
-        toast.success('Paróquia cadastrada!', {
-          description: `A paróquia "${response.data.name}" foi registrada com sucesso.`,
+        toast.success(isEditMode ? 'Paróquia atualizada!' : 'Paróquia cadastrada!', {
+          description: `A paróquia "${response.data.name}" foi ${
+            isEditMode ? 'atualizada' : 'registrada'
+          } com sucesso.`,
           timeout: 5000,
         });
       }
     } catch (err) {
       console.error(err);
       const networkError = 'Falha de conexão com o servidor. Tente novamente mais tarde.';
-      setServerError(networkError);
+
+      setError('root', {
+        type: 'network',
+        message: networkError,
+      });
 
       toast.danger('Erro de conexão', {
         description: networkError,
         timeout: 5000,
       });
-    } finally {
-      setIsSubmitting(false);
     }
   };
 
   const handleCreateAnother = () => {
-    reset({
-      name: '',
-      slug: '',
-      neighborhood: '',
-      address: '',
-      latitude: '',
-      longitude: '',
-      instagram: '',
-    });
+    reset();
     setIsCustomSlug(false);
     setSuccessChurch(null);
-    setServerError(null);
     setGeoNotice(null);
   };
 
-  // Tela de Sucesso
   if (successChurch) {
     return (
-      <Card className="w-full max-w-3xl mx-auto border border-emerald-500/40 bg-emerald-50/60 dark:bg-emerald-950/20 text-zinc-900 dark:text-zinc-100 shadow-sm p-6 sm:p-8 rounded-xl transition-colors duration-200">
+      <Card className="w-full max-w-3xl mx-auto border border-emerald-500/40 bg-emerald-50/60 dark:bg-emerald-950/20 text-zinc-900 dark:text-zinc-100 shadow-sm p-6 sm:p-8 rounded-xl">
         <div className="space-y-6">
           <Alert status="success">
             <Alert.Indicator />
             <Alert.Content>
               <Alert.Title className="text-base sm:text-lg font-semibold text-emerald-900 dark:text-emerald-200">
-                Paróquia cadastrada com sucesso!
+                {isEditMode
+                  ? 'Paróquia atualizada com sucesso!'
+                  : 'Paróquia cadastrada com sucesso!'}
               </Alert.Title>
               <Alert.Description className="text-sm mt-1 text-emerald-800 dark:text-emerald-300">
-                A paróquia <strong>{successChurch.name}</strong> foi registrada no sistema.
+                A paróquia <strong>{successChurch.name}</strong> foi{' '}
+                {isEditMode ? 'atualizada' : 'registrada'} no sistema.
               </Alert.Description>
             </Alert.Content>
           </Alert>
-
-          <div className="rounded-lg border border-emerald-200 dark:border-emerald-900/60 bg-white dark:bg-zinc-900 p-4 sm:p-5 space-y-3 text-sm shadow-xs">
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              <div>
-                <span className="text-zinc-500 dark:text-zinc-400 block text-xs uppercase tracking-wider font-medium">Nome</span>
-                <span className="font-semibold text-zinc-900 dark:text-zinc-100 text-base">{successChurch.name}</span>
-              </div>
-              <div>
-                <span className="text-zinc-500 dark:text-zinc-400 block text-xs uppercase tracking-wider font-medium">Slug (URL)</span>
-                <code className="text-xs bg-zinc-100 dark:bg-zinc-800 text-zinc-800 dark:text-zinc-200 px-2 py-0.5 rounded font-mono border border-zinc-200 dark:border-zinc-700">
-                  {successChurch.slug}
-                </code>
-              </div>
-              <div>
-                <span className="text-zinc-500 dark:text-zinc-400 block text-xs uppercase tracking-wider font-medium">Bairro</span>
-                <span className="font-medium text-zinc-800 dark:text-zinc-200">{successChurch.neighborhood}</span>
-              </div>
-              <div>
-                <span className="text-zinc-500 dark:text-zinc-400 block text-xs uppercase tracking-wider font-medium">Instagram</span>
-                <span className="font-medium text-zinc-800 dark:text-zinc-200">
-                  {successChurch.instagram ? `@${successChurch.instagram}` : 'Não informado'}
-                </span>
-              </div>
-              <div className="sm:col-span-2">
-                <span className="text-zinc-500 dark:text-zinc-400 block text-xs uppercase tracking-wider font-medium">Endereço</span>
-                <span className="font-medium text-zinc-800 dark:text-zinc-200">{successChurch.address}</span>
-              </div>
-              <div className="sm:col-span-2">
-                <span className="text-zinc-500 dark:text-zinc-400 block text-xs uppercase tracking-wider font-medium">Coordenadas (GPS)</span>
-                <span className="font-mono text-xs text-zinc-700 dark:text-zinc-300">
-                  Latitude: {successChurch.latitude} | Longitude: {successChurch.longitude}
-                </span>
-              </div>
-            </div>
-          </div>
 
           <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-end gap-3 pt-2">
             <Link
@@ -233,13 +215,15 @@ export function ChurchForm({ onSuccess }: ChurchFormProps) {
             >
               Ver Todas as Paróquias
             </Link>
-            <Button
-              variant="secondary"
-              onPress={handleCreateAnother}
-              className="w-full sm:w-auto"
-            >
-              Cadastrar Outra Paróquia
-            </Button>
+            {!isEditMode && (
+              <Button
+                variant="secondary"
+                onPress={handleCreateAnother}
+                className="w-full sm:w-auto"
+              >
+                Cadastrar Outra Paróquia
+              </Button>
+            )}
           </div>
         </div>
       </Card>
@@ -247,36 +231,39 @@ export function ChurchForm({ onSuccess }: ChurchFormProps) {
   }
 
   return (
-    <Card className="w-full max-w-3xl mx-auto shadow-sm border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 rounded-xl overflow-hidden transition-colors duration-200">
+    <Card className="w-full max-w-3xl mx-auto shadow-sm border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 rounded-xl overflow-hidden">
       <Card.Header className="p-6 border-b border-zinc-200 dark:border-zinc-800 bg-zinc-50/50 dark:bg-zinc-900/50">
         <Card.Title className="text-xl sm:text-2xl font-bold tracking-tight text-zinc-900 dark:text-zinc-50">
-          Dados da Paróquia
+          {isEditMode ? 'Editar Paróquia' : 'Dados da Paróquia'}
         </Card.Title>
         <Card.Description className="text-sm text-zinc-600 dark:text-zinc-400 mt-1">
-          Preencha as informações para registrar a igreja e disponibilizar sua localização no mapa.
+          {isEditMode
+            ? 'Altere as informações necessárias e salve as modificações.'
+            : 'Preencha as informações para registrar a igreja e disponibilizar sua localização no mapa.'}
         </Card.Description>
       </Card.Header>
 
       <form onSubmit={handleSubmit(onSubmit)} noValidate>
         <Card.Content className="p-6 space-y-6">
-          {/* Alerta de erro do servidor */}
-          {serverError && (
+          {errors.root?.message && (
             <Alert status="danger">
               <Alert.Indicator />
               <Alert.Content>
-                <Alert.Title className="font-semibold text-red-900 dark:text-red-200">Erro ao salvar</Alert.Title>
-                <Alert.Description className="text-red-800 dark:text-red-300">{serverError}</Alert.Description>
+                <Alert.Title className="font-semibold text-red-900 dark:text-red-200">
+                  Erro ao salvar
+                </Alert.Title>
+                <Alert.Description className="text-red-800 dark:text-red-300">
+                  {errors.root.message}
+                </Alert.Description>
               </Alert.Content>
             </Alert>
           )}
 
-          {/* Seção 1: Identificação */}
           <div className="space-y-4">
             <h3 className="text-xs font-semibold uppercase tracking-wider text-zinc-600 dark:text-zinc-400 border-b border-zinc-200 dark:border-zinc-800 pb-1.5">
               1. Identificação Geral
             </h3>
 
-            {/* Nome da Paróquia */}
             <TextField isRequired isInvalid={!!errors.name} className="space-y-1.5">
               <Label htmlFor="name" className="text-sm font-semibold text-zinc-800 dark:text-zinc-200">
                 Nome da Paróquia *
@@ -300,7 +287,6 @@ export function ChurchForm({ onSuccess }: ChurchFormProps) {
               )}
             </TextField>
 
-            {/* Slug da Paróquia */}
             <TextField isRequired isInvalid={!!errors.slug} className="space-y-1.5">
               <div className="flex items-center justify-between">
                 <Label htmlFor="slug" className="text-sm font-semibold text-zinc-800 dark:text-zinc-200">
@@ -325,18 +311,13 @@ export function ChurchForm({ onSuccess }: ChurchFormProps) {
                 disabled={isSubmitting}
                 className="w-full font-mono text-xs sm:text-sm text-zinc-900 dark:text-zinc-100 placeholder:text-zinc-400 dark:placeholder:text-zinc-500"
               />
-              {errors.slug ? (
+              {errors.slug && (
                 <FieldError className="text-xs text-red-600 dark:text-red-400 mt-1 font-medium">
                   {errors.slug.message}
                 </FieldError>
-              ) : (
-                <Description className="text-xs text-zinc-500 dark:text-zinc-400 mt-1">
-                  Identificador único na URL (letras minúsculas, números e hífens).
-                </Description>
               )}
             </TextField>
 
-            {/* Instagram */}
             <TextField isInvalid={!!errors.instagram} className="space-y-1.5">
               <Label htmlFor="instagram" className="text-sm font-semibold text-zinc-800 dark:text-zinc-200">
                 Instagram da Paróquia
@@ -348,25 +329,19 @@ export function ChurchForm({ onSuccess }: ChurchFormProps) {
                 disabled={isSubmitting}
                 className="w-full text-zinc-900 dark:text-zinc-100 placeholder:text-zinc-400 dark:placeholder:text-zinc-500"
               />
-              {errors.instagram ? (
+              {errors.instagram && (
                 <FieldError className="text-xs text-red-600 dark:text-red-400 mt-1 font-medium">
                   {errors.instagram.message}
                 </FieldError>
-              ) : (
-                <Description className="text-xs text-zinc-500 dark:text-zinc-400 mt-1">
-                  Opcional. Perfil oficial no Instagram para divulgações.
-                </Description>
               )}
             </TextField>
           </div>
 
-          {/* Seção 2: Localização */}
           <div className="space-y-4 pt-2">
             <h3 className="text-xs font-semibold uppercase tracking-wider text-zinc-600 dark:text-zinc-400 border-b border-zinc-200 dark:border-zinc-800 pb-1.5">
               2. Localização & Endereço
             </h3>
 
-            {/* Bairro */}
             <TextField isRequired isInvalid={!!errors.neighborhood} className="space-y-1.5">
               <Label htmlFor="neighborhood" className="text-sm font-semibold text-zinc-800 dark:text-zinc-200">
                 Bairro *
@@ -378,18 +353,13 @@ export function ChurchForm({ onSuccess }: ChurchFormProps) {
                 disabled={isSubmitting}
                 className="w-full text-zinc-900 dark:text-zinc-100 placeholder:text-zinc-400 dark:placeholder:text-zinc-500"
               />
-              {errors.neighborhood ? (
+              {errors.neighborhood && (
                 <FieldError className="text-xs text-red-600 dark:text-red-400 mt-1 font-medium">
                   {errors.neighborhood.message}
                 </FieldError>
-              ) : (
-                <Description className="text-xs text-zinc-500 dark:text-zinc-400 mt-1">
-                  Bairro onde a igreja está situada em João Pessoa ou região metropolitana.
-                </Description>
               )}
             </TextField>
 
-            {/* Endereço Completo */}
             <TextField isRequired isInvalid={!!errors.address} className="space-y-1.5">
               <Label htmlFor="address" className="text-sm font-semibold text-zinc-800 dark:text-zinc-200">
                 Endereço Completo *
@@ -402,19 +372,14 @@ export function ChurchForm({ onSuccess }: ChurchFormProps) {
                 disabled={isSubmitting}
                 className="w-full text-zinc-900 dark:text-zinc-100 placeholder:text-zinc-400 dark:placeholder:text-zinc-500"
               />
-              {errors.address ? (
+              {errors.address && (
                 <FieldError className="text-xs text-red-600 dark:text-red-400 mt-1 font-medium">
                   {errors.address.message}
                 </FieldError>
-              ) : (
-                <Description className="text-xs text-zinc-500 dark:text-zinc-400 mt-1">
-                  Logradouro, número, ponto de referência e CEP se houver.
-                </Description>
               )}
             </TextField>
           </div>
 
-          {/* Seção 3: Coordenadas Geográficas */}
           <div className="space-y-4 pt-2">
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-zinc-200 dark:border-zinc-800 pb-1.5">
               <h3 className="text-xs font-semibold uppercase tracking-wider text-zinc-600 dark:text-zinc-400">
@@ -424,7 +389,7 @@ export function ChurchForm({ onSuccess }: ChurchFormProps) {
                 type="button"
                 onClick={handleGetLocation}
                 disabled={geoLoading || isSubmitting}
-                className="inline-flex items-center gap-1.5 text-xs text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300 font-medium disabled:opacity-50 transition-colors"
+                className="inline-flex items-center gap-1.5 text-xs text-blue-600 dark:text-blue-400 hover:text-blue-700 font-medium disabled:opacity-50 transition-colors"
               >
                 {geoLoading ? (
                   <>
@@ -447,7 +412,6 @@ export function ChurchForm({ onSuccess }: ChurchFormProps) {
             )}
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              {/* Latitude */}
               <TextField isRequired isInvalid={!!errors.latitude} className="space-y-1.5">
                 <Label htmlFor="latitude" className="text-sm font-semibold text-zinc-800 dark:text-zinc-200">
                   Latitude *
@@ -457,20 +421,15 @@ export function ChurchForm({ onSuccess }: ChurchFormProps) {
                   placeholder="Ex: -7.115320"
                   {...register('latitude')}
                   disabled={isSubmitting}
-                  className="w-full font-mono text-xs sm:text-sm text-zinc-900 dark:text-zinc-100 placeholder:text-zinc-400 dark:placeholder:text-zinc-500"
+                  className="w-full font-mono text-xs sm:text-sm text-zinc-900 dark:text-zinc-100"
                 />
-                {errors.latitude ? (
+                {errors.latitude && (
                   <FieldError className="text-xs text-red-600 dark:text-red-400 mt-1 font-medium">
                     {errors.latitude.message}
                   </FieldError>
-                ) : (
-                  <Description className="text-xs text-zinc-500 dark:text-zinc-400 mt-1">
-                    Exemplo para JP: entre -7.0 e -7.3
-                  </Description>
                 )}
               </TextField>
 
-              {/* Longitude */}
               <TextField isRequired isInvalid={!!errors.longitude} className="space-y-1.5">
                 <Label htmlFor="longitude" className="text-sm font-semibold text-zinc-800 dark:text-zinc-200">
                   Longitude *
@@ -480,36 +439,30 @@ export function ChurchForm({ onSuccess }: ChurchFormProps) {
                   placeholder="Ex: -34.861000"
                   {...register('longitude')}
                   disabled={isSubmitting}
-                  className="w-full font-mono text-xs sm:text-sm text-zinc-900 dark:text-zinc-100 placeholder:text-zinc-400 dark:placeholder:text-zinc-500"
+                  className="w-full font-mono text-xs sm:text-sm text-zinc-900 dark:text-zinc-100"
                 />
-                {errors.longitude ? (
+                {errors.longitude && (
                   <FieldError className="text-xs text-red-600 dark:text-red-400 mt-1 font-medium">
                     {errors.longitude.message}
                   </FieldError>
-                ) : (
-                  <Description className="text-xs text-zinc-500 dark:text-zinc-400 mt-1">
-                    Exemplo para JP: entre -34.7 e -35.0
-                  </Description>
                 )}
               </TextField>
             </div>
           </div>
         </Card.Content>
 
-        {/* Rodapé de Ações */}
         <Card.Footer className="p-6 border-t border-zinc-200 dark:border-zinc-800 bg-zinc-50/50 dark:bg-zinc-900/50 flex flex-col-reverse sm:flex-row items-center justify-end gap-3">
           <Button
             type="button"
             variant="secondary"
             onPress={() => {
               reset();
-              setIsCustomSlug(false);
-              setServerError(null);
+              setIsCustomSlug(isEditMode);
             }}
             isDisabled={isSubmitting}
             className="w-full sm:w-auto"
           >
-            Limpar
+            {isEditMode ? 'Restaurar Valores' : 'Limpar'}
           </Button>
 
           <Button
@@ -520,8 +473,10 @@ export function ChurchForm({ onSuccess }: ChurchFormProps) {
             {isSubmitting ? (
               <span className="flex items-center gap-2">
                 <Spinner size="sm" />
-                <span>Cadastrando...</span>
+                <span>{isEditMode ? 'Salvando...' : 'Cadastrando...'}</span>
               </span>
+            ) : isEditMode ? (
+              'Salvar Alterações'
             ) : (
               'Cadastrar Paróquia'
             )}
