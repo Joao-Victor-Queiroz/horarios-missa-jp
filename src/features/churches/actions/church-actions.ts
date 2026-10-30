@@ -1,11 +1,12 @@
 'use server';
 
 import { revalidatePath } from 'next/cache';
-import { asc, eq } from 'drizzle-orm';
+import { and, asc, eq, ne } from 'drizzle-orm';
 import { db } from '@/src';
 import { churches } from '@/src/db/schema';
 import { churchSchema, type ChurchFormData } from '../schemas/church-schema';
 import type { ActionResponse, Church } from '../types';
+
 
 /**
  * Normaliza o identificador do Instagram removendo URL completa e símbolo '@'.
@@ -175,4 +176,81 @@ export async function getChurchByIdAction(
   }
 }
 
+export async function editChurchAction(id: string, formData: ChurchFormData): Promise<ActionResponse<Church>>{
+  try {
+    if (!id || typeof id !== 'string') {
+      return {
+        success: false,
+        message: 'ID da paróquia inválido.',
+      };
+    }
 
+    const church = await db.select().from(churches).where(eq(churches.id, id)).limit(1);
+
+    if(church.length === 0){
+      return {
+        success: false,
+        message: "Paróquia não encontrada.",
+      };
+    }
+    
+     const parseResult = churchSchema.safeParse(formData);
+
+    if (!parseResult.success) {
+      const fieldErrors: Record<string, string[]> = {};
+      parseResult.error.issues.forEach((issue) => {
+        const fieldName = String(issue.path[0] || 'geral');
+        if (!fieldErrors[fieldName]) {
+          fieldErrors[fieldName] = [];
+        }
+        fieldErrors[fieldName].push(issue.message);
+      });
+
+      return {
+        success: false,
+        message: 'Por favor, corrija os erros no formulário antes de enviar.',
+        errors: fieldErrors,
+      };
+    }
+
+    const validData = parseResult.data;
+    const cleanSlug = validData.slug.toLowerCase().trim();
+
+    const existingSlug = await db
+      .select({ id: churches.id })
+      .from(churches)
+      .where(and(eq(churches.slug, cleanSlug), ne(churches.id, id)))
+      .limit(1);
+
+    if(existingSlug.length > 0) {
+      return {
+        success: false,
+        message: `O identificador ${cleanSlug} já está sendo utilizado. Escolha outro.`,
+        errors: {
+           slug: ['Este identificador já está em uso por outra paróquia.'],
+        }
+      }
+    }
+
+    const [updated] = await db.update(churches).set({...validData, slug: cleanSlug}).where(eq(churches.id, id)).returning();
+
+    revalidatePath('/admin');
+    revalidatePath('/admin/register');
+    revalidatePath('/');
+
+    return {
+      success: true,
+      message: `Paróquia atualizada com sucesso!`,
+      data: updated,
+    };
+
+  } catch (error) {
+      return {
+      success: false,
+      message:
+        error instanceof Error
+          ? `Erro ao salvar no banco de dados: ${error.message}`
+          : 'Ocorreu um erro inesperado ao atualizar a paróquia. Tente novamente mais tarde.',
+    };
+  }
+}
