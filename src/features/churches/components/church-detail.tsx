@@ -1,12 +1,15 @@
 import React from 'react';
 import Link from 'next/link';
 import type { Church } from '../types';
+import type { Schedule } from '@/src/features/schedules/types';
+import { ChurchSchedulesDisplay } from '@/src/features/schedules/components/church-schedules-display';
 
 interface ChurchDetailProps {
   church: Church;
+  schedules?: Schedule[];
 }
 
-export function ChurchDetail({ church }: ChurchDetailProps) {
+export function ChurchDetail({ church, schedules = [] }: ChurchDetailProps) {
   const formattedDate = church.createdAt
     ? new Intl.DateTimeFormat('pt-BR', {
         dateStyle: 'long',
@@ -39,6 +42,13 @@ export function ChurchDetail({ church }: ChurchDetailProps) {
             </div>
 
             <div className="flex items-center gap-2">
+              <Link
+                href={`/admin/${church.id}/schedules`}
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs sm:text-sm font-medium bg-blue-600 hover:bg-blue-700 text-white transition-colors shadow-xs"
+              >
+                <span>🕐</span>
+                <span>Gerenciar Horários</span>
+              </Link>
               <a
                 href={mapsUrl}
                 target="_blank"
@@ -126,6 +136,11 @@ export function ChurchDetail({ church }: ChurchDetailProps) {
               </div>
             </div>
           </div>
+        </div>
+
+        {/* Seção de Horários */}
+        <div className="px-6 pb-6">
+          <ChurchSchedulesDisplay churchId={church.id} schedules={schedules} />
         </div>
 
         {/* Rodapé com Navegação */}

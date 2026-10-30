@@ -1,14 +1,14 @@
 import { pgTable, uuid, varchar, text, decimal, integer, time, timestamp, pgEnum } from 'drizzle-orm/pg-core';
 import {defineRelations } from 'drizzle-orm';
 
-// 1. Enum para os tipos de compromisso
+
 export const scheduleTypeEnum = pgEnum('schedule_type', [
   'missa',
   'adoracao',
   'confissao',
 ]);
 
-// 2. Tabela de Igrejas
+
 export const churches = pgTable('churches', {
   id: uuid('id').defaultRandom().primaryKey(),
   name: varchar('name', { length: 255 }).notNull(),
@@ -22,7 +22,7 @@ export const churches = pgTable('churches', {
   
 });
 
-// 3. Tabela de Horários
+
 export const schedules = pgTable('schedules', {
   id: uuid('id').defaultRandom().primaryKey(),
   churchId: uuid('church_id')

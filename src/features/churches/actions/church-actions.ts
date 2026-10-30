@@ -51,7 +51,7 @@ export async function createChurchAction(
     const validData = parseResult.data;
     const cleanSlug = validData.slug.toLowerCase().trim();
 
-    // 1. Verifica se já existe uma igreja com este slug
+    
     const existingChurch = await db
       .select({ id: churches.id })
       .from(churches)
@@ -68,7 +68,7 @@ export async function createChurchAction(
       };
     }
 
-    // 2. Insere a nova igreja
+
     const [inserted] = await db
       .insert(churches)
       .values({

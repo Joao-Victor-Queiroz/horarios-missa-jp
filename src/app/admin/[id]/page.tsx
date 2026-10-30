@@ -3,6 +3,7 @@ import { connection } from 'next/server';
 import Link from 'next/link';
 import { PageTitle } from '@/src/components/Title';
 import { getChurchByIdAction, ChurchDetail } from '@/src/features/churches';
+import { getChurchSchedulesAction } from '@/src/features/schedules';
 
 interface ChurchDetailPageProps {
   params: Promise<{ id: string }>;
@@ -30,7 +31,10 @@ function ChurchDetailSkeleton() {
 async function ChurchDetailContent({ params }: ChurchDetailPageProps) {
   await connection();
   const { id } = await params;
-  const response = await getChurchByIdAction(id);
+  const [response, schedulesResponse] = await Promise.all([
+    getChurchByIdAction(id),
+    getChurchSchedulesAction(id),
+  ]);
 
   if (!response.success || !response.data) {
     return (
@@ -72,6 +76,7 @@ async function ChurchDetailContent({ params }: ChurchDetailPageProps) {
   }
 
   const church = response.data;
+  const schedules = schedulesResponse.data ?? [];
 
   return (
     <div className="space-y-6">
@@ -103,7 +108,7 @@ async function ChurchDetailContent({ params }: ChurchDetailPageProps) {
       </div>
 
       {/* Detalhes da Paróquia */}
-      <ChurchDetail church={church} />
+      <ChurchDetail church={church} schedules={schedules} />
     </div>
   );
 }
