@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState } from 'react';
+import Link from 'next/link';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import {
@@ -226,6 +227,12 @@ export function ChurchForm({ onSuccess }: ChurchFormProps) {
           </div>
 
           <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-end gap-3 pt-2">
+            <Link
+              href="/admin"
+              className="inline-flex items-center justify-center px-4 py-2 rounded-lg text-sm font-medium border border-zinc-300 dark:border-zinc-700 hover:bg-zinc-100 dark:hover:bg-zinc-800 text-zinc-800 dark:text-zinc-200 transition-colors w-full sm:w-auto"
+            >
+              Ver Todas as Paróquias
+            </Link>
             <Button
               variant="secondary"
               onPress={handleCreateAnother}

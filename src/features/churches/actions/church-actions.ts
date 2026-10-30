@@ -1,7 +1,7 @@
 'use server';
 
 import { revalidatePath } from 'next/cache';
-import { eq } from 'drizzle-orm';
+import { asc, eq } from 'drizzle-orm';
 import { db } from '@/src';
 import { churches } from '@/src/db/schema';
 import { churchSchema, type ChurchFormData } from '../schemas/church-schema';
@@ -83,6 +83,7 @@ export async function createChurchAction(
       .returning();
 
     revalidatePath('/admin');
+    revalidatePath('/admin/register');
     revalidatePath('/');
 
     return {
@@ -101,4 +102,77 @@ export async function createChurchAction(
     };
   }
 }
+
+/**
+ * Recupera todas as paróquias cadastradas, ordenadas por nome.
+ */
+export async function getChurchesAction(): Promise<ActionResponse<Church[]>> {
+  try {
+    const list = await db
+      .select()
+      .from(churches)
+      .orderBy(asc(churches.name));
+
+    return {
+      success: true,
+      message: 'Lista de paróquias recuperada com sucesso.',
+      data: list,
+    };
+  } catch (error) {
+    console.error('Erro ao buscar lista de paróquias:', error);
+    return {
+      success: false,
+      message:
+        error instanceof Error
+          ? `Erro ao buscar paróquias: ${error.message}`
+          : 'Erro ao buscar paróquias no banco de dados.',
+      data: [],
+    };
+  }
+}
+
+/**
+ * Recupera os dados completos de uma paróquia pelo seu ID.
+ */
+export async function getChurchByIdAction(
+  id: string
+): Promise<ActionResponse<Church>> {
+  try {
+    if (!id || typeof id !== 'string') {
+      return {
+        success: false,
+        message: 'ID da paróquia inválido.',
+      };
+    }
+
+    const result = await db
+      .select()
+      .from(churches)
+      .where(eq(churches.id, id))
+      .limit(1);
+
+    if (result.length === 0) {
+      return {
+        success: false,
+        message: 'Paróquia não encontrada.',
+      };
+    }
+
+    return {
+      success: true,
+      message: 'Paróquia encontrada com sucesso.',
+      data: result[0],
+    };
+  } catch (error) {
+    console.error('Erro ao buscar paróquia por ID:', error);
+    return {
+      success: false,
+      message:
+        error instanceof Error
+          ? `Erro ao carregar dados da paróquia: ${error.message}`
+          : 'Erro inesperado ao consultar a paróquia.',
+    };
+  }
+}
+
 
